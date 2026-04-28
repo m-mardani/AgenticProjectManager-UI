@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import { AuthProvider } from './context/AuthContext'
 import { UIContextProvider } from './context/UIContext'
+import AIChat from './features/ai-chat'
 import LoginPage from './features/auth/LoginPage'
 import SignupPage from './features/auth/SignupPage'
 import DashboardLayout from './features/dashboard/components/DashboardLayout'
@@ -30,10 +31,7 @@ function App() {
               path="/reports"
               element={<div className="text-center py-10 text-gray-500">گزارش‌ها - در حال توسعه</div>}
             />
-            <Route
-              path="/ai-agent"
-              element={<div className="text-center py-10 text-gray-500">هوش مصنوعی - در حال توسعه</div>}
-            />
+            <Route path="/ai-agent" element={<AIChat />} />
             <Route
               path="/settings"
               element={<div className="text-center py-10 text-gray-500">تنظیمات - در حال توسعه</div>}
