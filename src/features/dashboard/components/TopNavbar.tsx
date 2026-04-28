@@ -1,6 +1,7 @@
-import { Bell, Search, ChevronDown, User } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { Bell, ChevronDown, LogOut, Search, User } from 'lucide-react'
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import { useAuth } from '../../../context/AuthContext'
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/dashboard': 'داشبورد',
@@ -12,6 +13,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
 
 export default function TopNavbar() {
   const location = useLocation()
+  const { user, logout } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   const currentPage = BREADCRUMB_MAP[location.pathname] || 'پروژه'
@@ -49,20 +51,44 @@ export default function TopNavbar() {
             onClick={() => setShowUserMenu(v => !v)}
             className="flex items-center gap-2 p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
-              <User className="w-4 h-4" />
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 text-blue-600" />
             </div>
-            <span className="text-sm font-medium hidden sm:block">مدیر سیستم</span>
-            <ChevronDown className="w-4 h-4" />
+            <div className="hidden md:block text-right text-sm">
+              <div className="font-medium text-gray-900">{user?.username || 'کاربر'}</div>
+              <div className="text-xs text-gray-500">
+                {user?.roles?.[0]
+                  ? user.roles[0] === 'admin'
+                    ? 'مدیر'
+                    : user.roles[0] === 'engineer'
+                      ? 'مهندس'
+                      : 'بازدیدکننده'
+                  : ''}
+              </div>
+            </div>
+            <ChevronDown className="w-4 h-4 text-gray-400" />
           </button>
 
           {showUserMenu && (
-            <div className="absolute left-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 text-sm text-right">
-              <button className="w-full px-4 py-2 text-right hover:bg-gray-50 text-gray-700">پروفایل</button>
-              <button className="w-full px-4 py-2 text-right hover:bg-gray-50 text-gray-700">تنظیمات</button>
-              <hr className="my-1 border-gray-200" />
-              <button className="w-full px-4 py-2 text-right hover:bg-gray-50 text-red-600">خروج</button>
-            </div>
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+              <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">{user?.username}</p>
+                  {user?.email && <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>}
+                </div>
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    logout()
+                  }}
+                  className="w-full text-right px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  خروج از سیستم
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

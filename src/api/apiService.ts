@@ -1,4 +1,6 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
+import type { ApiResponse, PaginatedResponse } from '../types'
+import { authService } from './authService'
 import { API_BASE_URL } from './endpoints'
 
 const apiClient = axios.create({
@@ -9,9 +11,10 @@ const apiClient = axios.create({
   timeout: 10000,
 })
 
+// Request interceptor - add auth token
 apiClient.interceptors.request.use(
   config => {
-    const token = localStorage.getItem('auth_token')
+    const token = authService.getAccessToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -20,19 +23,75 @@ apiClient.interceptors.request.use(
   error => Promise.reject(error)
 )
 
+// Response interceptor - handle errors and token refresh
 apiClient.interceptors.response.use(
   response => response,
-  error => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('auth_token')
+  async (error: AxiosError<ApiResponse<any>>) => {
+    const originalRequest = error.config
+
+    // Handle 401 - try to refresh token
+    if (error.response?.status === 401 && originalRequest && !originalRequest.headers['X-Retry']) {
+      try {
+        await authService.refreshToken()
+
+        // Retry original request with new token
+        const token = authService.getAccessToken()
+        originalRequest.headers['Authorization'] = `Bearer ${token}`
+        originalRequest.headers['X-Retry'] = 'true'
+
+        return apiClient(originalRequest)
+      } catch (refreshError) {
+        authService.logout()
+        return Promise.reject(refreshError)
+      }
     }
+
+    // Handle 403 - insufficient permissions
+    if (error.response?.status === 403) {
+      console.error('Access forbidden - insufficient permissions')
+    }
+
     return Promise.reject(error)
   }
 )
 
-export const apiGet = <T>(url: string) => apiClient.get<T>(url).then(r => r.data)
-export const apiPost = <T>(url: string, data: unknown) => apiClient.post<T>(url, data).then(r => r.data)
-export const apiPut = <T>(url: string, data: unknown) => apiClient.put<T>(url, data).then(r => r.data)
-export const apiDelete = <T>(url: string) => apiClient.delete<T>(url).then(r => r.data)
+// API helper functions - Standard single response
+export const apiGet = async <T>(url: string, params?: any): Promise<T> => {
+  const response = await apiClient.get<ApiResponse<T>>(url, { params })
+  if (!response.data.success || response.data.data === null) {
+    throw new Error(response.data.message || 'Request failed')
+  }
+  return response.data.data
+}
+
+export const apiPost = async <T>(url: string, data: unknown): Promise<T> => {
+  const response = await apiClient.post<ApiResponse<T>>(url, data)
+  if (!response.data.success || response.data.data === null) {
+    throw new Error(response.data.message || 'Request failed')
+  }
+  return response.data.data
+}
+
+export const apiPut = async <T>(url: string, data: unknown): Promise<T> => {
+  const response = await apiClient.put<ApiResponse<T>>(url, data)
+  if (!response.data.success || response.data.data === null) {
+    throw new Error(response.data.message || 'Request failed')
+  }
+  return response.data.data
+}
+
+export const apiDelete = async (url: string): Promise<void> => {
+  await apiClient.delete(url)
+  // 204 No Content - successful deletion
+}
+
+// Paginated list helper
+export const apiGetPaginated = async <T>(url: string, params?: any): Promise<PaginatedResponse<T>> => {
+  const response = await apiClient.get<PaginatedResponse<T>>(url, { params })
+  if (!response.data.success) {
+    throw new Error('Request failed')
+  }
+  return response.data
+}
 
 export default apiClient
